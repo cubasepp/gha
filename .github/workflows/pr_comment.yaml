@@ -1,13 +1,15 @@
+name: On Issue Comment
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  react-to-command:
-    if: github.event.comment.body == '/create_reviewapp test'
+  react_to_comment:
+    if: startsWith(github.event.comment.body, '/create_reviewapp')
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
     steps:
       - name: React to comment
         uses: actions/github-script@v7
@@ -19,3 +21,86 @@ jobs:
               comment_id: context.payload.comment.id,
               content: "rocket"
             });
+  get_app_name:
+    if: startsWith(github.event.comment.body, '/create_reviewapp')
+    runs-on: ubuntu-latest
+    outputs:
+      appName: ${{ steps.get-app-name.outputs.appName }}
+    steps:
+      - name: Extract review app name or fallback to PR number
+        id: get-app-name
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = context.payload.comment.body || "";
+            // Try to extract app name after "/create_reviewapp"
+            const match = comment.match(/^\/create_reviewapp\s+(\S+)/);
+            let appName = match ? match[1] : "";
+            // If appName is empty or whitespace, use fallback
+            if (!appName || /^\s*$/.test(appName)) {
+              appName = `pr-${context.issue.number}`;
+              core.info(`No app name provided, falling back to: ${appName}`);
+            } else {
+              core.info(`Using provided app name: ${appName}`);
+            }
+            core.setOutput('appName', appName);
+  get_pr_information:
+    if: startsWith(github.event.comment.body, '/create_reviewapp')
+    runs-on: ubuntu-latest
+    outputs:
+      branchName: ${{ steps.get-pr-info.outputs.branchName }}
+      prNumber: ${{ steps.get-pr-info.outputs.prNumber }}
+      repoOwner: ${{ steps.get-pr-info.outputs.repoOwner }}
+      repoName: ${{ steps.get-pr-info.outputs.repoName }}
+    steps:
+      - name: Get PR Information
+        uses: actions/github-script@v7
+        id: get-pr-info
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            // Set outputs for the step
+            core.setOutput('prNumber', pr.number);
+            core.setOutput('branchName', pr.head.ref);
+            core.setOutput('repoOwner', pr.head.repo.owner.login);
+            core.setOutput('repoName', pr.head.repo.name);
+  create_review_app:
+    needs: [react_to_comment, get_app_name, get_pr_information]
+    uses: ./.github/workflows/main.yaml
+    with:
+      branch_name: ${{ needs.get_pr_information.outputs.branchName }}
+      name: ${{ needs.get_app_name.outputs.appName }}
+
+  create_app_ready_comment:
+    needs: create_review_app
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: App ready comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const username = context.payload.comment.user.login;
+             await github.rest.issues.createComment({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               issue_number: context.issue.number,
+               body: `Hey @${username},
+
+               your review-app is ready: 🚀 ${{ needs.create_review_app.outputs.appName }} 🚀
+
+               **Access it here:**
+               [${{ needs.create_review_app.outputs.reviewAppUrl }}](${{ needs.create_review_app.outputs.reviewAppUrl }})
+
+               _Enjoy!_`
+             });

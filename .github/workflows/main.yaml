@@ -1,0 +1,43 @@
+name: Main Event
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Name for the review app (unique)"
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        required: true
+      branch_name:
+        type: string
+        required: true
+    outputs:
+      appName:
+        description: "App name"
+        value: ${{ jobs.deploy.outputs.appName }}
+      reviewAppUrl:
+        description: "Review App URL"
+        value: ${{ jobs.deploy.outputs.reviewAppUrl }}
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-24.04
+    outputs:
+      appName: ${{ steps.review-config.outputs.name }}
+      reviewAppUrl: ${{ steps.review-config.outputs.app_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_name != '' && inputs.branch_name || github.ref_name }}
+      - name: Generate App Config
+        id: review-config
+        run: |
+          echo "app_url=https://app-${{ inputs.name }}.review.de" >> $GITHUB_OUTPUT
+          echo "www_url=https://www-${{ inputs.name }}.review.de" >> $GITHUB_OUTPUT
+          echo "service_name=backend-${{ inputs.name }}" >> $GITHUB_OUTPUT
+          echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT

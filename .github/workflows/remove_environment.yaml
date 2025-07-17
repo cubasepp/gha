@@ -1,0 +1,30 @@
+name: PR Close Cleanup Environment
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+    steps:
+      - name: Clean Up PR Deployments
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              const prNumber = context.issue.number;
+              const environmentName = `review-app-pr${prNumber}`;
+
+              await github.request('DELETE /repos/{owner}/{repo}/environments/{environment_name}', {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment_name: environmentName
+              });
+              console.log(`Removed environment: ${environmentName}`);
+            } catch (error) {
+              console.error('Error removing environment:', error);
+            }
