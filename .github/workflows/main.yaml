@@ -18,6 +18,7 @@ on:
     outputs:
       appName:
         description: "App name"
+<<<<<<< HEAD
         value: ${{ jobs.deploy.outputs.appName }}
       reviewAppUrl:
         description: "Review App URL"
@@ -34,6 +35,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch_name != '' && inputs.branch_name || github.ref_name }}
+||||||| parent of 4db5fa3 (Fix fix)
+=======
+        value: ${{ jobs.deploy.outputs.name }}
+      reviewAppUrl:
+        description: "Review App URL"
+        value: ${{ jobs.deploy.outputs.reviewAppUrl }}
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-24.04
+    outputs:
+      appName: ${{ steps.review-config.outputs.name }}
+      reviewAppUrl: ${{ steps.review-config.outputs.app_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_name != '' && inputs.branch_name || github.ref_name }}
+
+>>>>>>> 4db5fa3 (Fix fix)
       - name: Generate App Config
         id: review-config
         run: |
