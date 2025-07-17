@@ -1,0 +1,21 @@
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  react-to-command:
+    if: github.event.comment.body == '/create_reviewapp test'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: React to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: "rocket"
+            });
